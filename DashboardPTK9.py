@@ -263,7 +263,7 @@ with st.expander("**Dataset Overview**"):
     data_asli = dff.drop(columns="status")
     st.markdown("### Data Titanic")
     st.write(f"Jumlah baris: **{len(data_asli):,}** | Jumlah kolom: **{data_asli.shape[1]}**")
-    st.dataframe(data_asli, use_container_width=True)
+    st.dataframe(data_asli, width="stretch")
 
     st.markdown("### 📊 Statistik Deskriptif")
     tab_num, tab_kat = st.tabs(["Variabel Numerik", "Variabel Kategorik"])
@@ -277,7 +277,7 @@ with st.expander("**Dataset Overview**"):
         stat = stat[["count", "kosong", "mean", "median", "std", "min", "25%", "75%", "max", "skewness"]]
         stat.columns = ["Jumlah Data", "Data Kosong", "Rata-rata", "Median", "Std Dev",
                         "Min", "Q1 (25%)", "Q3 (75%)", "Maks", "Skewness"]
-        st.dataframe(stat.round(3), use_container_width=True)
+        st.dataframe(stat.round(3), width="stretch")
         st.caption("Skewness > 0 berarti distribusi menceng ke kanan (ekor panjang di nilai besar). "
                    "Nilai rata-rata `survived` adalah tingkat keselamatan.")
 
@@ -293,4 +293,4 @@ with st.expander("**Dataset Overview**"):
                 "Persentase Modus (%)": round(frek.iloc[0] / len(dff) * 100, 2),
             })
         st.dataframe(pd.DataFrame(baris).set_index("Variabel").astype({"Modus": str}),
-                     use_container_width=True)
+                     width="stretch")
