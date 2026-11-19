@@ -30,19 +30,20 @@ st.markdown(
         padding: 16px;
         box-shadow: 0 6px 24px rgba(127, 90, 240, 0.25);
     }
-    .judul {
-        font-size: 3.6rem; font-weight: 900; margin: 0.2rem 0 0.4rem 0;
+    .block-container { padding-top: 4rem; }
+    div.judul {
+        font-size: 3.8rem !important; font-weight: 900 !important; margin: 0.2rem 0 0.6rem 0;
         text-align: center; letter-spacing: 1px; line-height: 1.15;
         background: linear-gradient(90deg, #7F5AF0, #FF6AC1, #FF9E7A, #00D4FF);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .subjudul {
-        font-size: 1.3rem; text-align: center; color: #CFC3FF;
-        margin-bottom: 1.5rem; font-weight: 500;
+    div.subjudul {
+        font-size: 1.4rem !important; text-align: center; color: #CFC3FF;
+        margin-bottom: 1.5rem; font-weight: 500 !important;
     }
     @media (max-width: 768px) {
-        .judul { font-size: 2.2rem; }
-        .subjudul { font-size: 1rem; }
+        div.judul { font-size: 2.2rem !important; }
+        div.subjudul { font-size: 1rem !important; }
     }
     [data-testid="stMetricValue"] {
         background: linear-gradient(90deg, #FF6AC1, #00D4FF);
@@ -100,8 +101,8 @@ if dff.empty:
     st.stop()
 
 # ================= JUDUL & KPI =================
-st.markdown('<p class="judul">DASHBOARD ANALISIS PENUMPANG TITANIC</p>', unsafe_allow_html=True)
-st.markdown('<p class="subjudul">Tugas Evaluasi Praktikum 9 Sains Data — Dataset Titanic | Arda Niansa (F1A224005)</p>', unsafe_allow_html=True)
+st.markdown('<div class="judul">DASHBOARD ANALISIS PENUMPANG TITANIC</div>', unsafe_allow_html=True)
+st.markdown('<div class="subjudul">Tugas Evaluasi Praktikum 9 Sains Data — Dataset Titanic | Arda Niansa (F1A224005)</div>', unsafe_allow_html=True)
 
 with st.container(border=True, key="bg_kpi"):
     k1, k2, k3, k4, k5 = st.columns(5)
