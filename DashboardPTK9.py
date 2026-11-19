@@ -59,18 +59,12 @@ df = load_data()
 
 # ================= FILTER =================
 st.sidebar.header("🎨 Filter Dashboard")
+st.sidebar.caption("Atur pilihan data sesuai kebutuhan analisis.")
 
-kelas_opsi = sorted(df["pclass"].unique())
-pilih_kelas = st.sidebar.multiselect("Kelas Tiket (Pclass)", kelas_opsi, default=kelas_opsi)
-
-sex_opsi = sorted(df["sex"].unique())
-pilih_sex = st.sidebar.multiselect("Jenis Kelamin", sex_opsi, default=sex_opsi)
-
-port_opsi = sorted(df["embark_town"].dropna().unique())
-pilih_port = st.sidebar.multiselect("Pelabuhan Keberangkatan", port_opsi, default=port_opsi)
-
-status_opsi = ["Selamat", "Tidak Selamat"]
-pilih_status = st.sidebar.multiselect("Status Keselamatan", status_opsi, default=status_opsi)
+pilih_kelas = st.sidebar.selectbox("Kelas Tiket (Pclass)", ["All"] + sorted(df["pclass"].unique().tolist()))
+pilih_sex = st.sidebar.selectbox("Jenis Kelamin", ["All"] + sorted(df["sex"].unique().tolist()))
+pilih_port = st.sidebar.selectbox("Pelabuhan Keberangkatan", ["All"] + sorted(df["embark_town"].dropna().unique().tolist()))
+pilih_status = st.sidebar.selectbox("Status Keselamatan", ["All", "Selamat", "Tidak Selamat"])
 
 umur_min, umur_max = int(df["age"].min()), int(df["age"].max())
 pilih_umur = st.sidebar.slider("Rentang Usia", umur_min, umur_max, (umur_min, umur_max))
@@ -80,16 +74,20 @@ cond_umur = df["age"].between(*pilih_umur)
 if termasuk_kosong:
     cond_umur |= df["age"].isna()
 
-dff = df[
-    df["pclass"].isin(pilih_kelas)
-    & df["sex"].isin(pilih_sex)
-    & (df["embark_town"].isin(pilih_port) | df["embark_town"].isna())
-    & df["status"].isin(pilih_status)
-    & cond_umur
-]
+mask = cond_umur
+if pilih_kelas != "All":
+    mask &= df["pclass"] == pilih_kelas
+if pilih_sex != "All":
+    mask &= df["sex"] == pilih_sex
+if pilih_port != "All":
+    mask &= df["embark_town"] == pilih_port
+if pilih_status != "All":
+    mask &= df["status"] == pilih_status
+
+dff = df[mask]
 
 if dff.empty:
-    st.warning("Tidak ada data yang sesuai dengan filter. Silakan pilih minimal satu opsi pada setiap filter.")
+    st.warning("Tidak ada data yang sesuai dengan filter. Silakan ubah pilihan filter atau pilih All.")
     st.stop()
 
 # ================= JUDUL & KPI =================
@@ -126,76 +124,138 @@ def gaya_legend(ax, judul):
         for t in leg.get_texts():
             t.set_color(TEXT)
 
-# ================= BARIS 1: BOXPLOT, BARPLOT, PIE =================
-with st.container(border=True, key="bg_row1"):
-    c1, c2, c3 = st.columns(3)
+COL_SEX = {"female": "#FF6AC1", "male": "#7F5AF0"}
+COL_KELAS = {1: "#7F5AF0", 2: "#C026D3", 3: "#FF9E7A"}
+FLIER = dict(markerfacecolor="#00D4FF", markeredgecolor="#00D4FF", markersize=3)
 
-    with c1:
+def donut(ax, fig, hitung, warna):
+    fig.patch.set_facecolor(CARD)
+    ax.pie(hitung.values, labels=hitung.index, colors=warna, autopct="%1.1f%%",
+           startangle=90, pctdistance=0.78,
+           wedgeprops=dict(edgecolor=CARD, linewidth=2, width=0.55),
+           textprops=dict(color=TEXT, fontsize=10))
+
+def heat(ax, fig, data, fmt):
+    fig.patch.set_facecolor(CARD)
+    ax.set_facecolor(CARD)
+    sns.heatmap(data, annot=True, fmt=fmt, cmap=CMAP, linecolor=CARD, linewidths=1.5, ax=ax,
+                annot_kws=dict(color="white", fontweight="bold"))
+    ax.tick_params(colors=TEXT)
+    ax.set_xlabel(ax.get_xlabel(), color=TEXT, fontweight="bold")
+    ax.set_ylabel(ax.get_ylabel(), color=TEXT, fontweight="bold")
+    ax.collections[0].colorbar.ax.tick_params(colors=TEXT)
+
+# ================= BOXPLOT (2 grafik) =================
+st.markdown("#### Distribusi Usia dan Tarif Berdasarkan Kelas Tiket")
+with st.container(border=True, key="bg_box"):
+    b1, b2 = st.columns(2)
+    with b1:
         st.markdown("**Boxplot Usia per Kelas Tiket dan Gender**")
         fig, ax = plt.subplots()
-        sns.boxplot(dff, x="pclass", y="age", hue="sex",
-                    palette={"female": "#FF6AC1", "male": "#7F5AF0"},
-                    linecolor="#F8F5FF", linewidth=1.2, ax=ax,
-                    flierprops=dict(markerfacecolor="#00D4FF", markeredgecolor="#00D4FF"))
+        sns.boxplot(dff, x="pclass", y="age", hue="sex", palette=COL_SEX,
+                    linecolor="#F8F5FF", linewidth=1.2, flierprops=FLIER, ax=ax)
         gaya(fig, ax, "Kelas Tiket", "Usia (tahun)")
         gaya_legend(ax, "Gender")
         st.pyplot(fig); plt.close(fig)
+    with b2:
+        st.markdown("**Boxplot Tarif per Kelas Tiket dan Gender**")
+        fig, ax = plt.subplots()
+        sns.boxplot(dff, x="pclass", y="fare", hue="sex", palette=COL_SEX,
+                    linecolor="#F8F5FF", linewidth=1.2, flierprops=FLIER, ax=ax)
+        gaya(fig, ax, "Kelas Tiket", "Tarif ($)")
+        gaya_legend(ax, "Gender")
+        st.pyplot(fig); plt.close(fig)
 
-    with c2:
+# ================= BARPLOT (2 grafik) =================
+st.markdown("#### Keselamatan dan Jumlah Penumpang")
+with st.container(border=True, key="bg_bar"):
+    r1, r2 = st.columns(2)
+    with r1:
         st.markdown("**Tingkat Keselamatan per Kelas dan Gender**")
         tabel = dff.groupby(["pclass", "sex"])["survived"].mean().mul(100).reset_index()
         fig, ax = plt.subplots()
-        sns.barplot(tabel, x="pclass", y="survived", hue="sex",
-                    palette={"female": "#FF6AC1", "male": "#7F5AF0"}, ax=ax)
+        sns.barplot(tabel, x="pclass", y="survived", hue="sex", palette=COL_SEX, ax=ax)
         gaya(fig, ax, "Kelas Tiket", "Selamat (%)")
         for cont in ax.containers:
             ax.bar_label(cont, fmt="%.1f%%", color=TEXT, fontsize=9, padding=3)
         gaya_legend(ax, "Gender")
         st.pyplot(fig); plt.close(fig)
+    with r2:
+        st.markdown("**Jumlah Penumpang per Kelas Tiket**")
+        jml = dff["pclass"].value_counts().sort_index().reset_index()
+        jml.columns = ["pclass", "jumlah"]
+        fig, ax = plt.subplots()
+        sns.barplot(jml, x="pclass", y="jumlah", hue="pclass", palette=COL_KELAS,
+                    legend=False, ax=ax)
+        gaya(fig, ax, "Kelas Tiket", "Jumlah Penumpang")
+        for cont in ax.containers:
+            ax.bar_label(cont, fmt="%d", color=TEXT, fontsize=9, padding=3)
+        st.pyplot(fig); plt.close(fig)
 
-    with c3:
+# ================= PIE CHART (2 grafik) =================
+st.markdown("#### Proporsi Penumpang")
+with st.container(border=True, key="bg_pie"):
+    p1, p2 = st.columns(2)
+    with p1:
         st.markdown("**Proporsi Penumpang per Pelabuhan**")
         hitung = dff["embark_town"].value_counts()
         fig, ax = plt.subplots()
-        fig.patch.set_facecolor(CARD)
-        ax.pie(hitung.values, labels=hitung.index, colors=["#7F5AF0", "#FF6AC1", "#00D4FF"][:len(hitung)],
-               autopct="%1.1f%%", startangle=90, pctdistance=0.78,
-               wedgeprops=dict(edgecolor=CARD, linewidth=2, width=0.55),
-               textprops=dict(color=TEXT, fontsize=10))
+        donut(ax, fig, hitung, ["#7F5AF0", "#FF6AC1", "#00D4FF"][:len(hitung)])
+        st.pyplot(fig); plt.close(fig)
+    with p2:
+        st.markdown("**Proporsi Status Keselamatan**")
+        hitung = dff["status"].value_counts()
+        fig, ax = plt.subplots()
+        donut(ax, fig, hitung, [C_SELAMAT if k == "Selamat" else C_TEWAS for k in hitung.index])
         st.pyplot(fig); plt.close(fig)
 
-# ================= BARIS 2: HISTOGRAM & HEATMAP =================
-c_hist, c_heat = st.columns(2)
-
-with c_hist:
-    with st.container(border=True, key="bg_hist"):
+# ================= HISTOGRAM (2 grafik) =================
+st.markdown("#### Distribusi Usia dan Tarif")
+with st.container(border=True, key="bg_hist"):
+    h1, h2 = st.columns(2)
+    with h1:
         st.markdown("**Distribusi Usia Penumpang**")
         fig, ax = plt.subplots()
         sns.histplot(dff.dropna(subset=["age"]), x="age", hue="status", bins=25,
                      multiple="stack", palette={"Selamat": C_SELAMAT, "Tidak Selamat": C_TEWAS},
                      edgecolor=CARD, ax=ax)
         gaya(fig, ax, "Usia (tahun)", "Jumlah Penumpang")
-        ax.grid(False, axis="x")
         gaya_legend(ax, "Status")
         st.pyplot(fig); plt.close(fig)
-
-with c_heat:
-    with st.container(border=True, key="bg_heat"):
-        st.markdown("**Heatmap Korelasi Variabel Numerik**")
-        kolom = ["survived", "pclass", "age", "sibsp", "parch", "fare"]
-        korelasi = dff[kolom].corr()
+    with h2:
+        st.markdown("**Distribusi Tarif Tiket**")
         fig, ax = plt.subplots()
-        fig.patch.set_facecolor(CARD)
-        ax.set_facecolor(CARD)
-        sns.heatmap(korelasi, annot=True, fmt=".2f", cmap=CMAP, vmin=-1, vmax=1,
-                    linecolor=CARD, linewidths=1.5, ax=ax,
-                    annot_kws=dict(color="white", fontweight="bold"))
-        ax.tick_params(colors=TEXT)
-        ax.collections[0].colorbar.ax.tick_params(colors=TEXT)
+        sns.histplot(dff["fare"], bins=30, kde=True, color="#C026D3", edgecolor=CARD, ax=ax,
+                     line_kws=dict(color="#00D4FF", linewidth=2))
+        gaya(fig, ax, "Tarif ($)", "Jumlah Penumpang")
         st.pyplot(fig); plt.close(fig)
 
-# ================= STATISTIK DESKRIPTIF =================
-with st.container(border=True, key="bg_stat"):
+# ================= HEATMAP (2 grafik) =================
+st.markdown("#### Korelasi dan Sebaran Penumpang")
+with st.container(border=True, key="bg_heat"):
+    m1, m2 = st.columns(2)
+    with m1:
+        st.markdown("**Heatmap Korelasi Variabel Numerik**")
+        kolom = ["survived", "pclass", "age", "sibsp", "parch", "fare"]
+        fig, ax = plt.subplots()
+        heat(ax, fig, dff[kolom].corr(), ".2f")
+        st.pyplot(fig); plt.close(fig)
+    with m2:
+        st.markdown("**Heatmap Jumlah Penumpang: Kelas Tiket dan Pelabuhan**")
+        silang = pd.crosstab(dff["pclass"], dff["embark_town"])
+        fig, ax = plt.subplots()
+        heat(ax, fig, silang, "d")
+        ax.set_xlabel("Pelabuhan", color=TEXT, fontweight="bold")
+        ax.set_ylabel("Kelas Tiket", color=TEXT, fontweight="bold")
+        st.pyplot(fig); plt.close(fig)
+
+# ================= VIEW DATASET + STATISTIK DESKRIPTIF =================
+with st.expander("**Dataset Overview**"):
+    data_asli = dff.drop(columns="status")
+    st.markdown("### Data Titanic")
+    st.write(f"Jumlah baris: **{len(data_asli):,}** | Jumlah kolom: **{data_asli.shape[1]}**")
+    st.dataframe(data_asli, use_container_width=True)
+
     st.markdown("### 📊 Statistik Deskriptif")
     tab_num, tab_kat = st.tabs(["Variabel Numerik", "Variabel Kategorik"])
 
@@ -225,8 +285,3 @@ with st.container(border=True, key="bg_stat"):
             })
         st.dataframe(pd.DataFrame(baris).set_index("Variabel").astype({"Modus": str}),
                      use_container_width=True)
-
-# ================= VIEW DATASET =================
-with st.expander("**Dataset Overview**"):
-    st.write(f"Jumlah baris: **{len(dff):,}** | Jumlah kolom: **{dff.shape[1]}**")
-    st.dataframe(dff, use_container_width=True)
