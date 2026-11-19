@@ -94,7 +94,7 @@ if dff.empty:
 
 # ================= JUDUL & KPI =================
 st.markdown('<p class="judul">DASHBOARD ANALISIS PENUMPANG TITANIC</p>', unsafe_allow_html=True)
-st.caption("Tugas Evaluasi Praktikum 9 Sains Data — Dataset Titanic (NIM Ganjil)")
+st.caption("Tugas Evaluasi Praktikum 9 Sains Data — Dataset Titanic | Arda Niansa (F1A224005)")
 
 with st.container(border=True, key="bg_kpi"):
     k1, k2, k3, k4, k5 = st.columns(5)
@@ -175,6 +175,7 @@ with c_hist:
                      multiple="stack", palette={"Selamat": C_SELAMAT, "Tidak Selamat": C_TEWAS},
                      edgecolor=CARD, ax=ax)
         gaya(fig, ax, "Usia (tahun)", "Jumlah Penumpang")
+        ax.grid(False, axis="x")
         gaya_legend(ax, "Status")
         st.pyplot(fig); plt.close(fig)
 
@@ -190,8 +191,42 @@ with c_heat:
                     linecolor=CARD, linewidths=1.5, ax=ax,
                     annot_kws=dict(color="white", fontweight="bold"))
         ax.tick_params(colors=TEXT)
+        ax.collections[0].colorbar.ax.tick_params(colors=TEXT)
         st.pyplot(fig); plt.close(fig)
+
+# ================= STATISTIK DESKRIPTIF =================
+with st.container(border=True, key="bg_stat"):
+    st.markdown("### 📊 Statistik Deskriptif")
+    tab_num, tab_kat = st.tabs(["Variabel Numerik", "Variabel Kategorik"])
+
+    with tab_num:
+        num = ["survived", "pclass", "age", "sibsp", "parch", "fare"]
+        stat = dff[num].describe().T
+        stat["median"] = dff[num].median()
+        stat["skewness"] = dff[num].skew()
+        stat["kosong"] = dff[num].isna().sum()
+        stat = stat[["count", "kosong", "mean", "median", "std", "min", "25%", "75%", "max", "skewness"]]
+        stat.columns = ["Jumlah Data", "Data Kosong", "Rata-rata", "Median", "Std Dev",
+                        "Min", "Q1 (25%)", "Q3 (75%)", "Maks", "Skewness"]
+        st.dataframe(stat.round(3), use_container_width=True)
+        st.caption("Skewness > 0 berarti distribusi menceng ke kanan (ekor panjang di nilai besar). "
+                   "Nilai rata-rata `survived` adalah tingkat keselamatan.")
+
+    with tab_kat:
+        baris = []
+        for kol in ["sex", "pclass", "embark_town", "who", "status"]:
+            frek = dff[kol].value_counts()
+            baris.append({
+                "Variabel": kol,
+                "Jumlah Kategori": dff[kol].nunique(),
+                "Modus": frek.index[0],
+                "Frekuensi Modus": int(frek.iloc[0]),
+                "Persentase Modus (%)": round(frek.iloc[0] / len(dff) * 100, 2),
+            })
+        st.dataframe(pd.DataFrame(baris).set_index("Variabel").astype({"Modus": str}),
+                     use_container_width=True)
 
 # ================= VIEW DATASET =================
 with st.expander("**Dataset Overview**"):
+    st.write(f"Jumlah baris: **{len(dff):,}** | Jumlah kolom: **{dff.shape[1]}**")
     st.dataframe(dff, use_container_width=True)
